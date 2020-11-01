@@ -24,11 +24,12 @@ data LispVal = Atom String -- An Atom, which stores a String naming the atom
 
 -- define parser for different types
 -- exercise 2: Change parseString so that \" gives a literal quote character instead of terminating
--- the string. So what is happening origically is that while parsing character by character if it sees
+-- the string. So what is happening originally is that while parsing character by character if it sees
 -- \" it simply skips that "Hello \" World" --> "Hello World", while we would like to see it as
 -- "Hello " World"
 -- Hint: You may want to replace noneOf "\"" with a new parser action that accepts either a non-quote
 -- character or a backslash followed by a quote mark.
+-- https://github.com/dstcruz/Write-Yourself-A-Scheme-In-48-Hours/blob/master/ch02/parsing/exercise_3.hs
 parseString :: Parser LispVal
 parseString = do
     -- In general, use >> if the actions don't return a value,
@@ -36,10 +37,21 @@ parseString = do
     -- and do-notation otherwise.
     char '"'
     -- x <- many (noneOf "\"")
-    -- x <- many (noneOf ['"'] <|> oneOf ['\"']) -- ex2. not sure if this is right solution
-    x <- many (noneOf ['"'] <|> oneOf ['\"']) -- ex3. Modify to support \n, \r, \t, \\
+    x <- many (escapeCharacters <|> (noneOf ['\\', '"']))
     char '"'
     return $ String x
+
+escapeCharacters :: Parser Char
+escapeCharacters = do
+    -- pass the values that are to be allowed
+    char '\\'
+    x <- oneOf ['\\', '"', "n", "t", "r"]
+    return $ case x of
+        "\\" -> x
+        '"'  -> x
+        'n'  -> '\n'
+        't'  -> '\t'
+        'r'  -> '\r'
 
 parseAtom :: Parser LispVal
 parseAtom = do
@@ -64,8 +76,8 @@ parseAtom = do
 -- The function composition operator . creates a function that applies its right argument
 -- and then passes the result to the left argument.
 
-parseNumber :: Parser LispVal
-parseNumber = liftM (Number . read) $ many1 digit
+-- parseNumber :: Parser LispVal
+-- parseNumber = liftM (Number . read) $ many1 digit
 
 -- in the above code we see that the flow is get the String from many1 digit
 -- 1. get value of many1 digit -> String
@@ -78,9 +90,27 @@ parseNumber = liftM (Number . read) $ many1 digit
 --     val <- many1 digit
 --     return $ Number (read val)
 
--- exercise 1b: rewrite parseNumber using >>=  (Can't figure out solution)
+-- exercise 1b: rewrite parseNumber using >>=
 -- parseNumber :: Parser LispVal
--- parseNumber = many1 digit >>= read >>= (\x -> return (Number x))
+-- parseNumber = many1 digit >>= (\x -> return ((Number . read) x))
+
+-- exercise 4. Change parseNumber to support the Scheme standard for different bases
+-- I like the do format in 1a so will be building on top of it. The problem is like this
+-- 
+parseSimpleNumber :: Parser LispVal
+parseSimpleNumber = do
+    val <- many1 digit
+    return $ Number (read val)
+
+parseHex :: Parser LispVal
+parseHex = char '#' >>
+    (
+
+    )
+
+
+parseNumber :: Parser LispVal
+parseNumber = parseSimpleNumber <|> parseHex
 
 parseExpr :: Parser LispVal
 parseExpr = parseAtom <|> parseString <|> parseNumber
